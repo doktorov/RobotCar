@@ -12,7 +12,7 @@
 #define  TRIGGER_PIN        12  // Arduino pin tied to trigger pin on the ultrasonic sensor.
 #define  ECHO_PIN           11  // Arduino pin tied to echo pin on the ultrasonic sensor.
 #define  MAX_DISTANCE       200 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
-#define  MIN_DISTANCE       20 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
+#define  MIN_DISTANCE       10 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 
 NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
 
@@ -22,6 +22,8 @@ int drive_speed;
 unsigned char servo_pos = 90;
 
 void setup() {
+  Serial.begin(9600); 
+  
   start = false;
   drive_speed = 50;  
   
@@ -34,12 +36,11 @@ void setup() {
   pinMode (ENB, OUTPUT);
   pinMode (IN4, OUTPUT);
   pinMode (IN3, OUTPUT);
+  
+  Serial.println("Init");
 }
 
-void loop() {   
-  //stopServo();  
-  //forwardDrive();
-  
+void loop() {     
   if (start) {
     delay(50);
 
@@ -50,9 +51,9 @@ void loop() {
       
       forwardDrive();
     } else {
-      findWay();
-      
       stopDrive();
+      
+      findWay();
     }
   } else {
     stopServo();
@@ -67,14 +68,69 @@ void loop() {
 
 void findWay() {
   set_servopulse(45);
+  int sonar_distance_left = 0;
+  for (int i=0; i <= 10; i++) { 
+    int ping_sonar = sonar.ping_cm();
+    if (ping_sonar > sonar_distance_left) {
+      sonar_distance_left = sonar.ping_cm();
+    }
+    delay(50);
+  } 
 
-  delay(1000);
+  delay(500);
 
   set_servopulse(135);
+  int sonar_distance_right = 0;
+  for (int i=0; i <= 10; i++) {
+    int ping_sonar = sonar.ping_cm();
+    if (ping_sonar > sonar_distance_right) {
+      sonar_distance_right = sonar.ping_cm();
+    }
 
-  delay(1000);
+    delay(50);
+  }
 
   stopServo();
+  
+  if (sonar_distance_left == 0) {
+    Serial.println("To Left " + String(sonar_distance_left));
+   
+    leftDrive();
+    
+    return;
+  } 
+  
+  if (sonar_distance_right == 0) {
+    Serial.println("To Right " + String(sonar_distance_right));
+    
+    rightDrive();
+    
+    return;
+  } 
+  
+  if (sonar_distance_left > sonar_distance_right) {
+    Serial.println("To Left " + String(sonar_distance_left) + " - " + String(sonar_distance_right));
+    
+    leftDrive();
+    
+    return;
+  } 
+  
+  if (sonar_distance_left < sonar_distance_right) {
+    Serial.println("To Right " + String(sonar_distance_left) + " - " + String(sonar_distance_right));
+    
+    rightDrive();
+    
+    return;
+  }
+  
+  if (sonar_distance_left == sonar_distance_right) {
+    Serial.println("== " + String(sonar_distance_left) + " - " + String(sonar_distance_right));
+    
+    leftDrive();
+    
+    return;
+  }  
 }
 
 void stopServo() { 
@@ -102,13 +158,29 @@ void forwardDrive() {
 void leftDrive() {
   digitalWrite (IN2, HIGH);
   digitalWrite (IN1, LOW);
+  digitalWrite (IN4, LOW);
+  digitalWrite (IN3, HIGH);
+
+  analogWrite(ENA, 80);
+  analogWrite(ENB, 80);
+  
+  delay(200);
+  
+  stopDrive();
+}
+
+void rightDrive() {
+  digitalWrite (IN2, LOW);
+  digitalWrite (IN1, HIGH);
   digitalWrite (IN4, HIGH);
   digitalWrite (IN3, LOW);
 
-  analogWrite(ENA, drive_speed);
-  analogWrite(ENB, drive_speed);
-
-  drive_speed++;
+  analogWrite(ENA, 80);
+  analogWrite(ENB, 80);
+  
+  delay(200);
+  
+  stopDrive();
 }
 
 void stopDrive() {
@@ -127,8 +199,9 @@ void servopulse(int servopin, int myangle) {
 }
 
 void set_servopulse(int set_val) {
-  for(int i=0; i <= 10; i++)  //giving motor enough time to turn to assigning point
+  for (int i=0; i <= 10; i++) {  //giving motor enough time to turn to assigning point
     servopulse(SERVO_PIN, set_val); //invokimg pulse function
+  }
 }
 
 /* P
