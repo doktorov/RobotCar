@@ -117,7 +117,7 @@ void Send() {
   client.print("#Атм. давление");
   client.println();
 
-  client.println("##");
+  client.print("##");
   //
 
   delay(10);
