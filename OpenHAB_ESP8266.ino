@@ -1,5 +1,3 @@
-#include <stdlib.h>
-
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
@@ -104,13 +102,19 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 void tempSend() {
   if (tm == 0) {
-    float temp = 23.43;
     if (client.connect("arduinoClient2")) {
-      char t1[20];  
+
+      char t1[20]; 
+      
       sprintf(t1, "%s", String(bmp.readTemperature()).c_str());
-      Serial.println(t1);    
+      Serial.print("Temperature = ");
+      Serial.print(t1);
       client.publish("balkon/temp_balkon", t1); 
-      Serial.println(temp);
+
+      sprintf(t1, "%s", String(bmp.readPressure() / 100 * 0.75).c_str());
+      Serial.print("Pressure = ");
+      Serial.println(t1);
+      client.publish("balkon/pressure_balkon", t1); 
     }
     tm = 300;  
   }
