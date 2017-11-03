@@ -4,6 +4,8 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
 
+#include <RCSwitch.h>
+
 Adafruit_BMP280 bmp; // I2C
 
 const char *ssid =  "Ntk-39";  // Имя вайфай точки доступа
@@ -17,17 +19,21 @@ const char *mqtt_pass = "openhabian"; // Пароль от сервера
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+RCSwitch mySwitch = RCSwitch();
+
 int tm = 300;
-float temp = 0;
+char t1[20];
 
 void setup() {
-  pinMode(D8, OUTPUT);
-
   Serial.begin(115200);
-
-    Serial.println(F("BMP280 test"));
   
-  if (!bmp.begin()) {  
+  pinMode(D3, OUTPUT);
+  digitalWrite(D3, LOW); 
+
+  mySwitch.enableTransmit(D4);  
+
+  Serial.println(F("BMP280 test"));
+  if (!bmp.begin()) {
     Serial.println(F("Could not find a valid BMP280 sensor, check wiring!"));
     while (1);
   }
@@ -69,11 +75,11 @@ void setup_wifi() {
 void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
     if (client.connect("arduinoClient2")) {
       Serial.println("connected");
 
       client.subscribe("test/led");
+      client.subscribe("hall/switch");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -93,31 +99,47 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
 
-  if ((char)payload[0] == '1') {
-    digitalWrite(D8, HIGH);
-  } else {
-    digitalWrite(D8, LOW);
+  if (String(topic) == "hall/switch") {
+    sendRC(payload, length);
   }
 }
 
 void tempSend() {
   if (tm == 0) {
     if (client.connect("arduinoClient2")) {
-
-      char t1[20]; 
-      
       sprintf(t1, "%s", String(bmp.readTemperature()).c_str());
       Serial.print("Temperature = ");
-      Serial.print(t1);
-      client.publish("balkon/temp_balkon", t1); 
+      Serial.println(t1);
+      client.publish("balkon/temp_balkon", t1);
 
       sprintf(t1, "%s", String(bmp.readPressure() / 100 * 0.75).c_str());
       Serial.print("Pressure = ");
       Serial.println(t1);
-      client.publish("balkon/pressure_balkon", t1); 
+      client.publish("balkon/pressure_balkon", t1);
     }
-    tm = 300;  
+    tm = 300;
   }
   tm--;
   delay(10);
+}
+
+void sendRC(byte* code, unsigned int length) {
+  String sCode = "";
+  
+  for (int i = 0; i < length; i++) {
+    sCode += (char)code[i];
+  }
+  
+  Serial.print("Code send = ");
+  digitalWrite(D3, HIGH);
+  
+  delay(10);
+
+  Serial.println(sCode);
+  mySwitch.send(sCode.toInt(), 24);
+
+  delay(10);
+
+  digitalWrite(D3, LOW);
+  Serial.println("Sended");
 }
